@@ -4,6 +4,11 @@
 #include<mpi.h>
 #include<dirent.h>
 
+typedef struct TransactionsStrings {
+    size_t size;
+    char * buffer;
+} TransactionsStrings;
+
 void seekToNewline(MPI_File * p_fh) {
     int err;
     char buf[] = {'\0'};
@@ -13,11 +18,7 @@ void seekToNewline(MPI_File * p_fh) {
     }
 }
 
-typedef struct TransactionsStrings {
-    size_t size;
-    char * buffer;
-} TransactionsStrings;
-
+// Load transaction strings for a given rank
 void loadRankData(const char * source_file, const int mpi_commsize, const int mpi_myrank, TransactionsStrings * p_tstrs) {
     int err;
     // Open file
