@@ -145,10 +145,7 @@ unsigned int splitString(char c, char * string, char ** tokenized) {
 }
 
 void parseTransaction(char * transaction_line, Transaction * p_transaction) {
-    char * split_transaction[2];
-    if(mpi_myrank == 15) {
-        fprintf(stderr, "%s\n", transaction_line);
-    }
+    char * split_transaction[2] = {NULL, NULL};
     const int num_tokens = splitString(';', transaction_line, &split_transaction[0]);
     if(num_tokens != 2) {
         fprintf(stderr, "Failed to split '%s'['%s' '%s'](%u tokens)\n", transaction_line, split_transaction[0], split_transaction[1], num_tokens);
@@ -162,13 +159,16 @@ void parseTransaction(char * transaction_line, Transaction * p_transaction) {
 void parseRankData(TransactionsStrings * p_tstrs, Transactions * p_transactions) {
     // Split string of transactions
     char ** tokenized_lines = malloc(sizeof(char *) * p_tstrs->size);
-    p_transactions->num_transactions = splitString('\n', p_tstrs->buffer, tokenized_lines);
+    const unsigned int num_tokens = splitString('\n', p_tstrs->buffer, tokenized_lines);
     // Allocate space to store transaction data
-    p_transactions->transactions = malloc(sizeof(Transaction) * p_transactions->num_transactions);
+    p_transactions->transactions = malloc(sizeof(Transaction) * num_tokens); // p_transactions->num_transactions);
+    p_transactions->num_transactions = 0;
     // Iterate over individual transaction strings
     unsigned int line_index;
-    for(line_index = 0; line_index < p_transactions->num_transactions; ++line_index) {
-        parseTransaction(tokenized_lines[line_index], &(p_transactions->transactions[line_index]));
+    for(line_index = 0; line_index < num_tokens; ++line_index) {
+        // Skip empty strings
+        if(strlen(tokenized_lines[line_index]) == 0) { continue; }
+        parseTransaction(tokenized_lines[line_index], &(p_transactions->transactions[p_transactions->num_transactions++]));
     }
     free(tokenized_lines);
 }
