@@ -161,17 +161,21 @@ void parseRankData(TransactionsStrings * p_tstrs, Transactions * p_transactions)
     // Split string of transactions
     char ** tokenized_lines = malloc(sizeof(char *) * p_tstrs->size);
     const unsigned int num_tokens = splitString('\n', p_tstrs->buffer, tokenized_lines);
+	fprintf(stderr,"[%u] split transactions with %u tokens\n", mpi_myrank, num_tokens);
+	sleep(1);
+	MPI_Barrier(MPI_COMM_WORLD);
+	unsigned int num_transactions = 0;
     // Allocate space to store transaction data
-    p_transactions->transactions = malloc(sizeof(Transaction) * num_tokens); // p_transactions->num_transactions);
-    p_transactions->num_transactions = 0;
+    //p_transactions->transactions = malloc(sizeof(Transaction) * num_tokens); // p_transactions->num_transactions);
     // Iterate over individual transaction strings
     unsigned int line_index;
     for(line_index = 0; line_index < num_tokens; ++line_index) {
         // Skip empty strings
-        if(strlen(tokenized_lines[line_index]) == 0) { continue; }
-        parseTransaction(tokenized_lines[line_index], &(p_transactions->transactions[p_transactions->num_transactions++]));
+        //if(strlen(tokenized_lines[line_index]) == 0) { continue; }
+        //parseTransaction(tokenized_lines[line_index], &(p_transactions->transactions[num_transactions++]));
     }
-    free(tokenized_lines);
+	p_transactions->num_transactions = num_transactions;
+    //free(tokenized_lines); //TODO
 }
 
 //TODO: create lookup function based on number of ranks and hash
@@ -195,12 +199,23 @@ int main(int argc, char ** argv) {
     TransactionsStrings tstrs;
     loadRankData(source_file, mpi_commsize, mpi_myrank, &tstrs);
 
+	fprintf(stderr, "[%u] closed file\n", mpi_myrank);
+	sleep(1);
+	MPI_Barrier(MPI_COMM_WORLD);
+	fprintf(stderr, "[%u] parsing data\n", mpi_myrank);
+	sleep(1);
+
     Transactions transactions;
     parseRankData(&tstrs, &transactions);
 
+	fprintf(stderr, "[%u] parsed data\n", mpi_myrank);
+	MPI_Barrier(MPI_COMM_WORLD);
+	sleep(1);
+
+
     // Clean up
-    free(transactions.transactions);
-    free(tstrs.buffer);
+    //free(transactions.transactions);
+    //free(tstrs.buffer);
 
     // Exit MPI
     MPI_Finalize();
