@@ -17,6 +17,7 @@ typedef struct TransactionsStrings {
 #define LONGS_PER_HASH (HASH_BITS / 64) + 1
 #define INPUTS_PER_TRANSACTION_MAX 10
 #define OUTPUTS_PER_TRANSACTION_MAX 20
+#define OUTER_BUFFER_MAX 4096 //TODO: come up with rational value
 
 // A single bitcoin address
 typedef struct Address {
@@ -100,10 +101,21 @@ void loadRankData(const char * source_file, const int mpi_commsize, const int mp
 
     // Load remainder until newline
     unsigned int outer_buffer_position = 0;
-    char * outer_buffer = malloc(sizeof(char) * 2048 + 1);
+    char outer_buffer[OUTER_BUFFER_MAX]; //TODO: find sane value
+	int count = 0;
     do {
+		if(outer_buffer_position == OUTER_BUFFER_MAX) {
+			fprintf(stderr, "[%u] outer buffer size exceeded\n", mpi_myrank);
+			sleep(1);
+			abort();
+		}
         err = MPI_File_read(fh, &outer_buffer[outer_buffer_position], 1, MPI_CHAR, & read_status);
         handleError(err);
+		MPI_Get_count(&read_status, MPI_CHAR, &count);
+		if(count == 0) {
+			outer_buffer[++outer_buffer_position] = '\0';
+			break;
+		}
     } while(outer_buffer[outer_buffer_position++] != '\n');
     outer_buffer[outer_buffer_position] = '\0';
 
@@ -119,7 +131,6 @@ void loadRankData(const char * source_file, const int mpi_commsize, const int mp
 
     // Clean up
     free(inner_buffer);
-    free(outer_buffer);
     MPI_File_close(&fh);
 }
 
