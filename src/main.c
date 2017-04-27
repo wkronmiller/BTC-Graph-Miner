@@ -2,6 +2,7 @@
 #include<stdio.h>
 #include<assert.h>
 #include<mpi.h>
+#include<unistd.h>
 #include<string.h>
 
 int mpi_commsize, mpi_myrank;
