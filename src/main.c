@@ -124,6 +124,7 @@ void loadRankData(const char * source_file, const int mpi_commsize, const int mp
 
 unsigned int splitString(char c, char * string, char ** tokenized) {
     const unsigned int string_length = strlen(string);
+    // Number of strings in tokenized
     unsigned int num_tokens = 0;
     unsigned int str_index;
     unsigned int segment_start = 0;
