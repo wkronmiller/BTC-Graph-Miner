@@ -76,10 +76,10 @@ void loadRankData(const char * source_file, const int mpi_commsize, const int mp
     // Get current rank's starting point
     const MPI_Offset rank_chunk_size = (file_size / mpi_commsize);
     const MPI_Offset start_offset = rank_chunk_size * mpi_myrank;
-    MPI_Offset end_offset = start_offset + rank_chunk_size;
+    MPI_Offset inner_end_offset = start_offset + rank_chunk_size;
     // Correct for int division floor (last rank reads to end of file)
-    if(file_size - end_offset < rank_chunk_size) {
-        end_offset = file_size;
+    if(file_size - inner_end_offset < rank_chunk_size) {
+        inner_end_offset = file_size;
     }
     // Set current rank's view
     err = MPI_File_set_view(fh, start_offset, MPI_CHAR, MPI_CHAR, "external32", MPI_INFO_NULL);
@@ -94,7 +94,7 @@ void loadRankData(const char * source_file, const int mpi_commsize, const int mp
     handleError(err);
 
     // Load safe chunks
-    const size_t inner_buffer_size = end_offset - start_offset - current_position;
+    const size_t inner_buffer_size = inner_end_offset - start_offset - current_position;
     char * inner_buffer = malloc(sizeof(char) * (inner_buffer_size + 1));
     inner_buffer[inner_buffer_size] = '\0';
     MPI_Status read_status;
@@ -104,12 +104,12 @@ void loadRankData(const char * source_file, const int mpi_commsize, const int mp
     // Ensure all inner data is read
     err = MPI_File_get_position(fh, &current_position);
     handleError(err);
-    assert(current_position + start_offset == end_offset);
+    assert(current_position + start_offset == inner_end_offset);
 
     // Load remainder until newline
-    size_t outer_buffer_sane_max = file_size - end_offset;
+    size_t outer_buffer_sane_max = file_size - inner_end_offset; //TODO: double-check this makes sense (this should mean outer buffer cannot read past end of file)
     unsigned int outer_buffer_position = 0;
-    char outer_buffer[OUTER_BUFFER_MAX] = {0}; //TODO: find sane value
+    char outer_buffer[OUTER_BUFFER_MAX] = {0};
 	int count = 0;
     do {
         if(outer_buffer_position == OUTER_BUFFER_MAX) {
