@@ -13,7 +13,8 @@ typedef struct TransactionsStrings {
 } TransactionsStrings;
 
 #define HASH_BITS 160
-#define HASH_MAX_LENGTH HASH_BITS / 4
+//#define HASH_MAX_LENGTH HASH_BITS / 4
+#define HASH_MAX_LENGTH 50 //TODO: figure out why hex strings are longer than they are supposed to be
 #define LONGS_PER_HASH (HASH_BITS / 64) + 1
 #define INPUTS_PER_TRANSACTION_MAX 10
 #define OUTPUTS_PER_TRANSACTION_MAX 20
@@ -176,7 +177,7 @@ unsigned int splitString(char c, char * string, char ** tokenized) {
 
 void hashHexToAddress(char * hexHash, Address * p_address) {
     if(mpi_myrank == 1) {
-        printf("'%s'\n", hexHash); //TODO
+        printf("%lu '%s'\n", strlen(hexHash), hexHash); //TODO
     }
     //TODO
 }
