@@ -40,7 +40,12 @@ typedef struct Transactions {
 
 // Default checked function error-handler
 void handleError(int err) {
-    //TODO
+    if (err) {
+        char estr[256] = {0};
+        int len = 0;
+        MPI_Error_string(err, estr, &len);
+        printf("MPI error: %s\n", mpi_myrank, estr);
+    }        
 }
 
 void seekToNewline(MPI_File * p_fh) {
