@@ -174,7 +174,32 @@ unsigned int splitString(char c, char * string, char ** tokenized) {
     return num_tokens;
 }
 
+void hashHexToAddress(char * hexHash, Address * p_address) {
+    if(mpi_myrank == 1) {
+        printf("'%s'\n", hexHash); //TODO
+    }
+    //TODO
+}
+
+unsigned int parseAddresses(const unsigned int max_addrs, char * address_list, Address ** p_addresses) {
+    // Split address list into individual strings
+    char * address_strings[max_addrs];
+    const unsigned int num_tokens = splitString(',', address_list, &address_strings[0]);
+    // Allocate address array
+    (*p_addresses) = malloc(sizeof(Address) * num_tokens);
+    unsigned int token_index;
+    unsigned int num_addresses;
+    for(token_index = 0; token_index < num_tokens; ++token_index) {
+        // Skip empty strings
+        if(strlen(address_strings[token_index]) > 0) {
+            hashHexToAddress(address_strings[token_index], &(*p_addresses)[num_addresses++]);
+        }
+    }
+    return num_addresses;
+}
+
 void parseTransaction(char * transaction_line, Transaction * p_transaction) {
+    // Separate inputs and outputs
     char * split_transaction[2] = {NULL, NULL};
     const int num_tokens = splitString(';', transaction_line, &split_transaction[0]);
     if(num_tokens != 2) {
@@ -183,7 +208,8 @@ void parseTransaction(char * transaction_line, Transaction * p_transaction) {
         sleep(10);
         abort();
     }
-    //TODO
+    p_transaction->num_inputs = parseAddresses(INPUTS_PER_TRANSACTION_MAX, split_transaction[0], &(p_transaction->inputs));
+    p_transaction->num_outputs = parseAddresses(OUTPUTS_PER_TRANSACTION_MAX, split_transaction[1], &(p_transaction->outputs));
 }
 
 void parseRankData(TransactionsStrings * p_tstrs, Transactions * p_transactions) {
@@ -247,6 +273,11 @@ int main(int argc, char ** argv) {
 
 
     // Clean up
+    unsigned int txn_index;
+    for(txn_index = 0; txn_index < transactions.num_transactions; ++txn_index) {
+        free(transactions.transactions[txn_index].inputs);
+        free(transactions.transactions[txn_index].outputs);
+    }
     free(transactions.transactions);
     free(tstrs.buffer);
 
