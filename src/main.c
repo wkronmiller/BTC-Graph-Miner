@@ -44,7 +44,9 @@ void handleError(int err) {
         char estr[256] = {0};
         int len = 0;
         MPI_Error_string(err, estr, &len);
-        printf("[%u]: MPI error: %s\n", mpi_myrank, estr);
+        fprintf(stderr,"[%u]: MPI error: %s\n", mpi_myrank, estr);
+		sleep(10); // Sleep to give MPI time to log message
+		MPI_Abort(MPI_COMM_WORLD, err);
     }        
 }
 
