@@ -4,6 +4,7 @@
 #include<mpi.h>
 #include<unistd.h>
 #include<string.h>
+#include<inttypes.h>
 
 int mpi_commsize, mpi_myrank;
 
@@ -20,10 +21,12 @@ typedef struct TransactionsStrings {
 #define OUTPUTS_PER_TRANSACTION_MAX 20
 #define OUTER_BUFFER_MAX 4096 //TODO: come up with rational value
 
-// A single bitcoin address
-typedef struct Address {
-    unsigned long long int chunks[LONGS_PER_HASH];
-} Address;
+#define HEX_TRUNCATE_START_INDEX 4
+#define HEX_TRUNCATE_END_INDEX HEX_TRUNCATE_START_INDEX + (sizeof(Address) * 2)
+#define TRUNCATED_LENGTH HEX_TRUNCATE_END_INDEX - HEX_TRUNCATE_START_INDEX
+
+// A single truncated bitcoin address
+typedef uint64_t Address;
 
 // Transaction hash storage
 typedef struct Transaction {
@@ -175,11 +178,13 @@ unsigned int splitString(char c, char * string, char ** tokenized) {
     return num_tokens;
 }
 
+// Create truncated bitcoin address
+
 void hashHexToAddress(char * hexHash, Address * p_address) {
-    if(mpi_myrank == 1) {
-        printf("%lu '%s'\n", strlen(hexHash), hexHash); //TODO
-    }
-    //TODO
+    char truncated_address[TRUNCATED_LENGTH + 1] = {0};
+    strncpy(truncated_address, &hexHash[HEX_TRUNCATE_START_INDEX], TRUNCATED_LENGTH);
+    // Hex to longlong
+    *p_address = strtoull(truncated_address, NULL, 16);
 }
 
 unsigned int parseAddresses(const unsigned int max_addrs, char * address_list, Address ** p_addresses) {
@@ -189,12 +194,13 @@ unsigned int parseAddresses(const unsigned int max_addrs, char * address_list, A
     // Allocate address array
     (*p_addresses) = malloc(sizeof(Address) * num_tokens);
     unsigned int token_index;
-    unsigned int num_addresses;
+    unsigned int num_addresses = 0;
     for(token_index = 0; token_index < num_tokens; ++token_index) {
         // Skip empty strings
         if(strlen(address_strings[token_index]) > 0) {
             hashHexToAddress(address_strings[token_index], &(*p_addresses)[num_addresses++]);
         }
+        assert(num_addresses <= num_tokens);
     }
     return num_addresses;
 }
@@ -214,15 +220,8 @@ void parseTransaction(char * transaction_line, Transaction * p_transaction) {
 }
 
 void parseRankData(TransactionsStrings * p_tstrs, Transactions * p_transactions) {
-    // Split string of transactions
-	fprintf(stderr,"[%u] has transaction string of %lu length\n", mpi_myrank, p_tstrs->size);
-	sleep(1);
-	MPI_Barrier(MPI_COMM_WORLD);
     char ** tokenized_lines = malloc(sizeof(char *) * p_tstrs->size);
     const unsigned int num_tokens = splitString('\n', p_tstrs->buffer, tokenized_lines);
-	fprintf(stderr,"[%u] split transactions with %u tokens\n", mpi_myrank, num_tokens);
-	sleep(1);
-	MPI_Barrier(MPI_COMM_WORLD);
 	unsigned int num_transactions = 0;
     // Allocate space to store transaction data
     p_transactions->transactions = malloc(sizeof(Transaction) * num_tokens); // p_transactions->num_transactions);
@@ -259,19 +258,8 @@ int main(int argc, char ** argv) {
 	tstrs.size = 0;
     loadRankData(source_file, mpi_commsize, mpi_myrank, &tstrs);
 
-	fprintf(stderr, "[%u] closed file\n", mpi_myrank);
-	sleep(1);
-	MPI_Barrier(MPI_COMM_WORLD);
-	fprintf(stderr, "[%u] parsing data\n", mpi_myrank);
-	sleep(1);
-
     Transactions transactions;
     parseRankData(&tstrs, &transactions);
-
-	fprintf(stderr, "[%u] parsed data\n", mpi_myrank);
-	MPI_Barrier(MPI_COMM_WORLD);
-	sleep(1);
-
 
     // Clean up
     unsigned int txn_index;
