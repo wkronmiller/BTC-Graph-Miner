@@ -122,12 +122,18 @@ void loadRankData(const char * source_file, const int mpi_commsize, const int mp
     // Combine buffers
     p_tstrs->buffer = malloc(sizeof(char) * (outer_buffer_position + inner_buffer_size) + 1); //TODO: check for off-by-ones
     unsigned int index;
+	// Length of transaction string
+	unsigned int tstr_size = 0;
     for(index = 0; index < inner_buffer_size; ++index) {
-        p_tstrs->buffer[index] = inner_buffer[index];
+        p_tstrs->buffer[tstr_size++] = inner_buffer[index];
     }
     for(index = 0; index < outer_buffer_position; ++index) {
-        p_tstrs->buffer[index + inner_buffer_size] = outer_buffer[index];
+        p_tstrs->buffer[tstr_size++] = outer_buffer[index];
     }
+	// Add null terminator
+	p_tstrs->buffer[tstr_size++] = '\0';
+	// Update transaction string length
+	p_tstrs->size = tstr_size;
 
     // Clean up
     free(inner_buffer);
@@ -170,6 +176,9 @@ void parseTransaction(char * transaction_line, Transaction * p_transaction) {
 
 void parseRankData(TransactionsStrings * p_tstrs, Transactions * p_transactions) {
     // Split string of transactions
+	fprintf(stderr,"[%u] has transaction string of %lu length\n", mpi_myrank, p_tstrs->size);
+	sleep(1);
+	MPI_Barrier(MPI_COMM_WORLD);
     char ** tokenized_lines = malloc(sizeof(char *) * p_tstrs->size);
     const unsigned int num_tokens = splitString('\n', p_tstrs->buffer, tokenized_lines);
 	fprintf(stderr,"[%u] split transactions with %u tokens\n", mpi_myrank, num_tokens);
@@ -177,7 +186,7 @@ void parseRankData(TransactionsStrings * p_tstrs, Transactions * p_transactions)
 	MPI_Barrier(MPI_COMM_WORLD);
 	unsigned int num_transactions = 0;
     // Allocate space to store transaction data
-    //p_transactions->transactions = malloc(sizeof(Transaction) * num_tokens); // p_transactions->num_transactions);
+    p_transactions->transactions = malloc(sizeof(Transaction) * num_tokens); // p_transactions->num_transactions);
     // Iterate over individual transaction strings
     unsigned int line_index;
     for(line_index = 0; line_index < num_tokens; ++line_index) {
@@ -186,7 +195,7 @@ void parseRankData(TransactionsStrings * p_tstrs, Transactions * p_transactions)
         //parseTransaction(tokenized_lines[line_index], &(p_transactions->transactions[num_transactions++]));
     }
 	p_transactions->num_transactions = num_transactions;
-    //free(tokenized_lines); //TODO
+    free(tokenized_lines);
 }
 
 //TODO: create lookup function based on number of ranks and hash
@@ -208,6 +217,7 @@ int main(int argc, char ** argv) {
     char * source_file = argv[1];
 
     TransactionsStrings tstrs;
+	tstrs.size = 0;
     loadRankData(source_file, mpi_commsize, mpi_myrank, &tstrs);
 
 	fprintf(stderr, "[%u] closed file\n", mpi_myrank);
@@ -225,8 +235,8 @@ int main(int argc, char ** argv) {
 
 
     // Clean up
-    //free(transactions.transactions);
-    //free(tstrs.buffer);
+    free(transactions.transactions);
+    free(tstrs.buffer);
 
     // Exit MPI
     MPI_Finalize();
