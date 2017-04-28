@@ -40,7 +40,12 @@ typedef struct Transactions {
 
 // Default checked function error-handler
 void handleError(int err) {
-    //TODO
+    if (err) {
+        char estr[256] = {0};
+        int len = 0;
+        MPI_Error_string(err, estr, &len);
+        printf("MPI error: %s\n", mpi_myrank, estr);
+    }        
 }
 
 void seekToNewline(MPI_File * p_fh) {
@@ -100,18 +105,22 @@ void loadRankData(const char * source_file, const int mpi_commsize, const int mp
     assert(current_position + start_offset == end_offset);
 
     // Load remainder until newline
+    size_t outer_buffer_sane_max = file_size - end_offset;
     unsigned int outer_buffer_position = 0;
-    char outer_buffer[OUTER_BUFFER_MAX]; //TODO: find sane value
+    char outer_buffer[OUTER_BUFFER_MAX] = {0}; //TODO: find sane value
 	int count = 0;
     do {
-		if(outer_buffer_position == OUTER_BUFFER_MAX) {
+        if(outer_buffer_position == OUTER_BUFFER_MAX) {
 			fprintf(stderr, "[%u] outer buffer size exceeded\n", mpi_myrank);
 			sleep(1);
 			abort();
 		}
+        if(outer_buffer_position == outer_buffer_sane_max) {
+            break;
+        }
         err = MPI_File_read(fh, &outer_buffer[outer_buffer_position], 1, MPI_CHAR, & read_status);
         handleError(err);
-		MPI_Get_count(&read_status, MPI_CHAR, &count);
+        MPI_Get_count(&read_status, MPI_CHAR, &count);
 		if(count == 0) {
 			outer_buffer[++outer_buffer_position] = '\0';
 			break;
@@ -130,9 +139,10 @@ void loadRankData(const char * source_file, const int mpi_commsize, const int mp
     for(index = 0; index < outer_buffer_position; ++index) {
         p_tstrs->buffer[tstr_size++] = outer_buffer[index];
     }
-	// Add null terminator
+    // Add null terminator
 	p_tstrs->buffer[tstr_size++] = '\0';
-	// Update transaction string length
+    
+    // Update transaction string length
 	p_tstrs->size = tstr_size;
 
     // Clean up
@@ -216,7 +226,7 @@ int main(int argc, char ** argv) {
     // Load CLI Args
     char * source_file = argv[1];
 
-    TransactionsStrings tstrs;
+    TransactionsStrings tstrs = {0};
 	tstrs.size = 0;
     loadRankData(source_file, mpi_commsize, mpi_myrank, &tstrs);
 

@@ -1,6 +1,8 @@
 all: src/main.c
 	mpicc -g -I. -Wall src/main.c -o a.out
 	mpicc -g -fsanitize=address -I. -Wall src/main.c -o debug.out
+debug:
+	mpirun -np 1 ./debug.out testInput/testInput
 debug8:
 	mpirun -np 8 ./debug.out testInput/testInput
 test8:
