@@ -186,13 +186,13 @@ void parseRankData(TransactionsStrings * p_tstrs, Transactions * p_transactions)
 	MPI_Barrier(MPI_COMM_WORLD);
 	unsigned int num_transactions = 0;
     // Allocate space to store transaction data
-    p_transactions->transactions = malloc(sizeof(Transaction) * num_tokens); // p_transactions->num_transactions);
+    p_transactions->transactions = calloc(sizeof(Transaction) * num_tokens); // p_transactions->num_transactions);
     // Iterate over individual transaction strings
     unsigned int line_index;
     for(line_index = 0; line_index < num_tokens; ++line_index) {
         // Skip empty strings
-        //if(strlen(tokenized_lines[line_index]) == 0) { continue; }
-        //parseTransaction(tokenized_lines[line_index], &(p_transactions->transactions[num_transactions++]));
+        if(strlen(tokenized_lines[line_index]) == 0) { continue; }
+        parseTransaction(tokenized_lines[line_index], &(p_transactions->transactions[num_transactions++]));
     }
 	p_transactions->num_transactions = num_transactions;
     free(tokenized_lines);
