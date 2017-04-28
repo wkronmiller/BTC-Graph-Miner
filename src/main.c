@@ -44,7 +44,7 @@ void handleError(int err) {
         char estr[256] = {0};
         int len = 0;
         MPI_Error_string(err, estr, &len);
-        printf("MPI error: %s\n", mpi_myrank, estr);
+        printf("[%u]: MPI error: %s\n", mpi_myrank, estr);
     }        
 }
 
