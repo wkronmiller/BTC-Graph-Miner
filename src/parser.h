@@ -1,12 +1,13 @@
 #ifndef _RORY_PARSER
 #define _RORY_PARSER 1
-
+#include<limits.h>
 #include"utils.h"
 
 // Definitions
 #define INPUTS_PER_TRANSACTION_MAX 10
 #define OUTPUTS_PER_TRANSACTION_MAX 20
-#define OUTER_BUFFER_MAX 4096 //TODO: come up with rational value
+#define ADDRESS_MAX_LENGTH
+#define OUTER_BUFFER_MAX 1024 * 1024 //TODO: come up with rational value
 
 // Address truncation settings
 #define HEX_TRUNCATE_START_INDEX 4
@@ -65,25 +66,45 @@ void loadRankData(const char * source_file, const int mpi_commsize, const int mp
 
     // Load safe chunks
     const size_t inner_buffer_size = inner_end_offset - start_offset - current_position;
+    printf("[%u] loading inner buffer of size %lu\n", mpi_myrank, inner_buffer_size);
     char * inner_buffer = malloc(sizeof(char) * (inner_buffer_size + 1));
     inner_buffer[inner_buffer_size] = '\0';
     MPI_Status read_status;
-    err = MPI_File_read(fh, inner_buffer, inner_buffer_size, MPI_CHAR, &read_status);
-    handleError(err);
+    // TODO: do inside loop until all expected bytes are read
+	int count = 0;
+    size_t bytes_read = 0;
+    size_t bytes_to_read = 0;
+    while(bytes_read != inner_buffer_size) {
+        bytes_to_read = inner_buffer_size - bytes_read;
+        if(bytes_to_read >= INT_MAX) { bytes_to_read = INT_MAX - 1; }
+        assert(bytes_to_read > 0);
+        err = MPI_File_read(fh, inner_buffer, bytes_to_read, MPI_CHAR, &read_status);
+        handleError(err);
+        MPI_Get_count(&read_status, MPI_BYTE, &count);
+        bytes_read += count;
+        err = MPI_File_get_position(fh, &current_position);
+        handleError(err);
+        if(mpi_myrank == 0) {
+            printf("[%u] has read %lu of %lu (%u)(%llu)\n", mpi_myrank, bytes_read, inner_buffer_size, count, INT_MAX); 
+        }
+    }
 
     // Ensure all inner data is read
     err = MPI_File_get_position(fh, &current_position);
     handleError(err);
-    assert(current_position + start_offset == inner_end_offset);
+    if(current_position + start_offset != inner_end_offset) {
+        fprintf(stderr, "[%u] current position %llu != %llu inner end\n", mpi_myrank, current_position + start_offset, inner_end_offset);
+        sleep(10);
+        abort();
+    }
 
     // Load remainder until newline
     size_t outer_buffer_sane_max = file_size - inner_end_offset; //TODO: double-check this makes sense (this should mean outer buffer cannot read past end of file)
     unsigned int outer_buffer_position = 0;
-    char outer_buffer[OUTER_BUFFER_MAX] = {0};
-	int count = 0;
+    char outer_buffer[OUTER_BUFFER_MAX + 1] = {0};
     do {
         if(outer_buffer_position == OUTER_BUFFER_MAX) {
-			fprintf(stderr, "[%u] outer buffer size exceeded\n", mpi_myrank);
+			fprintf(stderr, "[%u] outer buffer size exceeded\n\tCurrent contents: '%s'\n", mpi_myrank, outer_buffer);
 			sleep(1);
 			abort();
 		}
@@ -92,7 +113,7 @@ void loadRankData(const char * source_file, const int mpi_commsize, const int mp
         }
         err = MPI_File_read(fh, &outer_buffer[outer_buffer_position], 1, MPI_CHAR, & read_status);
         handleError(err);
-        MPI_Get_count(&read_status, MPI_CHAR, &count);
+        MPI_Get_count(&read_status, MPI_BYTE, &count);
 		if(count == 0) {
 			outer_buffer[++outer_buffer_position] = '\0';
 			break;
